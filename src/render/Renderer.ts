@@ -1,0 +1,90 @@
+// Dibuja la pecera en un canvas 2D (vista lateral). La gráfica es plataforma: formas
+// simples. El pez se dibuja con forma de pez (cuerpo elíptico + cola) para que escale bien.
+import type { Tank } from '../world/Tank';
+import type { Fish } from '../agents/Fish';
+
+export class Renderer {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  showVision = false; // toggle de depuración del cono
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+  }
+
+  draw(tank: Tank): void {
+    const ctx = this.ctx;
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+
+    // Escala el mundo (tamaño fijo del escenario) para ajustarlo al canvas conservando la
+    // proporción y centrándolo (letterbox). Dentro del save/restore se dibuja en COORDENADAS
+    // DE MUNDO. Detalle: README › Coordenadas y escala.
+    const scale = Math.min(cw / tank.width, ch / tank.height);
+    const offsetX = (cw - tank.width * scale) / 2;
+    const offsetY = (ch - tank.height * scale) / 2;
+
+    // fondo detrás del mundo (cubre las franjas del letterbox)
+    ctx.fillStyle = '#061219';
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    // De aquí en adelante: coordenadas de mundo (0..tank.width, 0..tank.height).
+    // fondo de agua
+    const grad = ctx.createLinearGradient(0, 0, 0, tank.height);
+    grad.addColorStop(0, '#0d2436');
+    grad.addColorStop(1, '#08161f');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, tank.width, tank.height);
+
+    // comida
+    ctx.fillStyle = '#9bd362';
+    for (const f of tank.food) {
+      ctx.beginPath();
+      ctx.arc(f.pos.x, f.pos.y, f.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // peces
+    for (const fish of tank.fish) this.#drawFish(fish);
+
+    ctx.restore();
+  }
+
+  #drawFish(fish: Fish): void {
+    const ctx = this.ctx;
+    const s = fish.size;
+    ctx.save();
+    ctx.translate(fish.x, fish.y);
+    ctx.rotate(fish.heading);
+
+    if (this.showVision) {
+      const v = fish.genome.vision;
+      ctx.fillStyle = 'rgba(74,144,196,0.12)';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, v.range, -v.angle / 2, v.angle / 2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.fillStyle = fish.genome.color;
+    // cuerpo
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 1.6, s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // cola (triángulo hacia atrás)
+    ctx.beginPath();
+    ctx.moveTo(-s * 1.6, 0);
+    ctx.lineTo(-s * 2.6, -s * 0.8);
+    ctx.lineTo(-s * 2.6, s * 0.8);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
