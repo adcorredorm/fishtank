@@ -1,12 +1,21 @@
-import type { Vec } from '../types';
+import type { Vec, Consumable } from '../types';
 
-// Comida: unidad comestible con energía. En iter.2 dará paso a una planta que crece.
-export class Food {
+export class Food implements Consumable {
   pos: Vec;
-  value: number;
+  energy: number;
   size = 3;
-  constructor(x: number, y: number, value: number) {
+  #eaten = false;
+  constructor(x: number, y: number, energy: number) {
     this.pos = { x, y };
-    this.value = value;   // "nutrición": energía base que aporta al ser comida
+    this.energy = energy;
+  }
+
+  get eaten(): boolean { return this.#eaten; }
+  contactPoint(_from: Vec): Vec { return this.pos; }
+  get contactRadius(): number { return this.size; }
+  tryConsume(): number {
+    if (this.#eaten) return 0;
+    this.#eaten = true;
+    return this.energy;
   }
 }

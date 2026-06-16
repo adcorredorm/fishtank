@@ -61,3 +61,9 @@ test('la comida no supera el tope configurado (food.max)', () => {
   for (let i = 0; i < 2000; i++) t.step();
   expect(t.food.length).toBeLessThanOrEqual(scn.food.max);
 });
+
+test('[ANDAMIAJE] siembra las plantas configuradas, ancladas al fondo', () => {
+  const t = new Tank(scn);
+  expect(t.plants.length).toBe(scn.plants.count);
+  for (const p of t.plants) expect(p.base.y).toBe(t.height);
+});

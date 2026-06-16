@@ -41,8 +41,20 @@ export class Renderer {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, tank.width, tank.height);
 
-    // comida
-    ctx.fillStyle = '#9bd362';
+    // plantas (ancladas al fondo; polilínea de sus segmentos en coords de mundo)
+    for (const plant of tank.plants) {
+      ctx.strokeStyle = plant.color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const s of plant.segments) {
+        ctx.moveTo(s.x0, s.y0);
+        ctx.lineTo(s.x1, s.y1);
+      }
+      ctx.stroke();
+    }
+
+    // comida flotante (secundaria → tenue)
+    ctx.fillStyle = 'rgba(155,211,98,0.55)';
     for (const f of tank.food) {
       ctx.beginPath();
       ctx.arc(f.pos.x, f.pos.y, f.size, 0, Math.PI * 2);

@@ -17,9 +17,8 @@ function predGenome(): Genome {
 }
 function world(over: Partial<World> = {}): World {
   return Object.assign({
-    width: 300, height: 300, food: [], fish: [],
+    width: 300, height: 300, food: [], plants: [], fish: [],
     walls: [new Wall('left'), new Wall('right'), new Wall('top'), new Wall('bottom')],
-    remove() { return true; },
   } as World, over);
 }
 

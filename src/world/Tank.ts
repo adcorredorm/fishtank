@@ -2,30 +2,34 @@
 // muertos, aparecer comida). La física por-pez ocurre dentro de Fish.#apply().
 // Toda la aleatoriedad sale de un único RNG sembrado → corridas reproducibles.
 import { Food } from './Food';
+import { Plant } from './Plant';
 import { Wall } from './Wall';
-import { seedRandom, random } from '../utilities/rng';
-import type { Scenario, SpeciesSpec, World } from '../types';
+import { seedRandom, random, randomInt } from '../utilities/rng';
+import type { Scenario, SpeciesSpec, World, PlantConfig } from '../types';
 import type { Fish } from '../agents/Fish';
 
 export class Tank implements World {
   width: number;
   height: number;
   foodConfig: Scenario['food'];
+  plantsConfig: PlantConfig;
   tickCount = 0;
   walls: Wall[];
   food: Food[] = [];
+  plants: Plant[] = [];
   fish: Fish[] = [];
   speciesNames: string[];
-  #toRemove = new Set<object>();
 
   constructor(scenario: Scenario) {
     seedRandom(scenario.seed);            // ← init único de la semilla; el resto usa random()
     this.width = scenario.tank.width;
     this.height = scenario.tank.height;
     this.foodConfig = scenario.food;
+    this.plantsConfig = scenario.plants;
     this.walls = [new Wall('left'), new Wall('right'), new Wall('top'), new Wall('bottom')];
     this.speciesNames = scenario.species.map(s => s.type.name);
     this.#spawnFish(scenario.species);
+    this.#spawnPlants(scenario.plants);
   }
 
   #spawnFish(species: SpeciesSpec[]): void {
@@ -40,27 +44,27 @@ export class Tank implements World {
     }
   }
 
-  // Lo llama Fish.#apply() para reclamar una entidad comida. Devuelve true si la reclamó
-  // este pez, o false si ya estaba reclamada en este tick (evita que dos peces coman lo
-  // mismo y ganen energía dos veces).
-  remove(entity: object): boolean {
-    if (this.#toRemove.has(entity)) return false;
-    this.#toRemove.add(entity);
-    return true;
+  #spawnPlants(cfg: PlantConfig): void {
+    for (let i = 0; i < cfg.count; i++) {
+      const x = random() * this.width;
+      const level = randomInt(0, cfg.maxGrowth);
+      this.plants.push(new Plant({ x, y: this.height }, cfg, level));
+    }
   }
 
   step(): void {
-    // 1) aparece comida (posición desde el RNG sembrado), hasta un tope simultáneo
+    // 1) aparece comida flotante (secundaria), hasta un tope simultáneo
     if (this.food.length < this.foodConfig.max && random() < this.foodConfig.rate) {
       this.food.push(new Food(random() * this.width, random() * this.height, this.foodConfig.value));
     }
-    // 2) cada pez percibe, decide y aplica su física
+    // 2) las plantas crecen (renovables; nunca se eliminan)
+    for (const plant of this.plants) plant.grow();
+    // 3) cada pez percibe, decide y aplica su física
     for (const fish of this.fish) fish.tick(this);
-    // 3) retirar comidos y muertos
-    if (this.#toRemove.size > 0) this.food = this.food.filter(f => !this.#toRemove.has(f));
-    this.fish = this.fish.filter(f => !this.#toRemove.has(f) && !f.isDead);
-    this.#toRemove.clear();
-    // 4) avanzar el reloj
+    // 4) el mundo retira lo consumido: comida y peces comidos o muertos
+    this.food = this.food.filter(f => !f.eaten);
+    this.fish = this.fish.filter(f => !f.eaten && !f.isDead);
+    // 5) avanzar el reloj
     this.tickCount += 1;
   }
 

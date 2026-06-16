@@ -2,7 +2,18 @@ import { test, expect } from 'vitest';
 import { Fish } from '../src/agents/Fish';
 import { Food } from '../src/world/Food';
 import { Wall } from '../src/world/Wall';
-import type { Genome, World } from '../src/types';
+import { Plant } from '../src/world/Plant';
+import { Turtle } from '../src/world/Turtle';
+import type { Grammar } from '../src/world/Grammar';
+
+// Gramática de prueba (deriveAll funcional pero falso, no la solución del ejercicio): permite
+// probar la percepción de plantas sin depender de la derivación real.
+const stubGrammar = {
+  axiom: 'F', rules: {},
+  deriveStep: (s: string) => s,
+  deriveAll: (n: number) => Array.from({ length: n + 1 }, (_, i) => 'F'.repeat(i + 1)),
+} as unknown as Grammar;
+import type { Genome, World, PlantConfig } from '../src/types';
 
 function makeGenome(over: Partial<Genome> = {}): Genome {
   return Object.assign({
@@ -16,9 +27,8 @@ function makeGenome(over: Partial<Genome> = {}): Genome {
 function makeWorld(over: Partial<World> = {}): World {
   return Object.assign({
     width: 200, height: 200,
-    food: [], fish: [],
+    food: [], plants: [], fish: [],
     walls: [new Wall('left'), new Wall('right'), new Wall('top'), new Wall('bottom')],
-    remove: (_e: object) => true,
   } as World, over);
 }
 
@@ -123,17 +133,15 @@ test('rebota y se mantiene dentro de las paredes', () => {
   expect(g.x).toBeGreaterThanOrEqual(0);
 });
 
-test('comer en contacto suma energía y marca el objetivo para retiro', () => {
-  const removed: object[] = [];
+test('comer en contacto suma energía y marca la comida como comida', () => {
   const world = makeWorld();
-  world.remove = (e: object) => { removed.push(e); return true; };
   const comida = new Food(102, 100, 8);
   world.food = [comida];
   class Eater extends Fish { act(inputs: any): void { this.eat(inputs.seen.food[0].ref); } }
   const g = new Eater(100, 100, 0, 100, makeGenome({ size: 10, eatGain: 1, baseCost: 0, moveCost: 0, vision: { range: 50, angle: Math.PI } }));
   g.tick(world);
-  expect(removed[0]).toBe(comida);
-  expect(g.energy).toBe(100 + 1 * 8); // eatGain * food.value
+  expect(comida.eaten).toBe(true);
+  expect(g.energy).toBe(100 + 1 * 8); // eatGain * food.energy
 });
 
 test('muere por energía agotada', () => {
@@ -158,9 +166,6 @@ test('una pared se percibe en su punto visible dentro del cono, no en la perpend
 
 test('dos peces no pueden comer el mismo objetivo dos veces (reclamación única)', () => {
   const world = makeWorld();
-  let removeCalls = 0;
-  const claimed = new Set<object>();
-  world.remove = (e: object) => { removeCalls++; if (claimed.has(e)) return false; claimed.add(e); return true; };
   const comida = new Food(100, 100, 8);
   world.food = [comida];
   class Eater extends Fish { act(): void { this.eat(comida); } }
@@ -171,4 +176,27 @@ test('dos peces no pueden comer el mismo objetivo dos veces (reclamación única
   b.tick(world);
   expect(a.energy).toBe(108); // el primero gana
   expect(b.energy).toBe(100); // el segundo no (ya estaba reclamada)
+});
+
+function plantCfg(): PlantConfig {
+  return {
+    count: 1, grammar: stubGrammar,
+    turtle: new Turtle({ angle: 25, stepLength: 10, lengthRatio: 0.75 }),
+    growthInterval: 1, maxGrowth: 3, energyPerLevel: 5, contactRadius: 4, color: '#0f0',
+  };
+}
+
+test('[ANDAMIAJE] sense ignora las plantas en nivel 0', () => {
+  const f = new Fish(100, 100, -Math.PI / 2, 100, makeGenome({ vision: { range: 200, angle: 2 * Math.PI } }));
+  const brote = new Plant({ x: 100, y: 60 }, plantCfg(), 0); // arriba del pez, pero nivel 0
+  const seen = f.sense(makeWorld({ plants: [brote] })).seen;
+  expect(seen.plants.length).toBe(0);
+});
+
+test('[ANDAMIAJE] sense ve una planta en nivel >= 1 por su vértice más cercano', () => {
+  const f = new Fish(100, 100, -Math.PI / 2, 100, makeGenome({ vision: { range: 200, angle: 2 * Math.PI } }));
+  const planta = new Plant({ x: 100, y: 60 }, plantCfg(), 2); // crecida, arriba del pez
+  const seen = f.sense(makeWorld({ plants: [planta] })).seen;
+  expect(seen.plants.length).toBe(1);
+  expect(seen.plants[0].ref).toBe(planta);
 });
