@@ -37,6 +37,12 @@ export interface Perceived<T> {
   ref: T;
 }
 
+/** Un pez visto por otro: además de dir/dist, su rumbo RELATIVO al observador. */
+export interface PerceivedFish extends Perceived<Fish> {
+  /** Rumbo del otro pez relativo al mío, normalizado a (−π, π]. 0 = miramos igual. */
+  heading: number;
+}
+
 /** Lo que percibe un pez en un tick — es el argumento que recibe `act(inputs)`. */
 export interface Inputs {
   /** Energía propia normalizada a 0..1 (1 = `genome.maxEnergy`). */
@@ -45,7 +51,7 @@ export interface Inputs {
   seen: {
     food: Perceived<Food>[];
     plants: Perceived<Plant>[];
-    fish: Perceived<Fish>[];
+    fish: PerceivedFish[];
     walls: Perceived<Wall>[];
   };
 }

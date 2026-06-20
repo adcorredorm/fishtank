@@ -1,7 +1,7 @@
 // Pez: agente de la pecera. La clase BASE es andamiaje; las subclases (Prey/Predator) solo
 // sobre-escriben act(). El estado físico está encapsulado en campos privados '#': el motor
 // (esta clase base + el Tank) es el único que lo modifica.
-import type { Genome, Inputs, World, Vec, Consumable } from '../types';
+import type { Genome, Inputs, World, Vec, Consumable, Perceived } from '../types';
 import { dist, relativeBearing, fromAngle, vecAdd, vecScale, normalizeAngle } from '../utilities/vec';
 
 export class Fish implements Consumable {
@@ -71,11 +71,11 @@ export class Fish implements Consumable {
   // ── Percepción: todo lo visible dentro del cono, agrupado por tipo ──
   // El cono está centrado en el rumbo; 'dir' es relativo (0 = al frente).
   sense(world: World): Inputs {
-    const seen = { food: [] as any[], plants: [] as any[], fish: [] as any[], walls: [] as any[] };
+    const seen: Inputs['seen'] = { food: [], plants: [], fish: [], walls: [] };
     const halfAngle = this.genome.vision.angle / 2;
     const range = this.genome.vision.range;
 
-    const consider = (ref: object, point: Vec, bucket: any[]): void => {
+    const consider = <T>(ref: T, point: Vec, bucket: Perceived<T>[]): void => {
       const d = dist(this.#pos, point);
       if (d > range) return;
       const dir = relativeBearing(this.#pos, this.#heading, point);
@@ -87,6 +87,7 @@ export class Fish implements Consumable {
     // Las plantas en nivel 0 (brotes) no se perciben: no hay nada que comer todavía.
     for (const p of world.plants) if (p.level >= 1) consider(p, p.contactPoint(this.#pos), seen.plants);
     for (const other of world.fish) if (other !== this) consider(other, other.contactPoint(this.#pos), seen.fish);
+    for (const e of seen.fish) e.heading = normalizeAngle(e.ref.heading - this.#heading);
     for (const w of world.walls) {
       const wp = w.visiblePoint(this.#pos, this.#heading, halfAngle, range, world);
       if (wp) seen.walls.push({ dir: relativeBearing(this.#pos, this.#heading, wp), dist: dist(this.#pos, wp), ref: w });

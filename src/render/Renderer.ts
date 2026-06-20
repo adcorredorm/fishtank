@@ -1,7 +1,10 @@
 // Dibuja la pecera en un canvas 2D (vista lateral). La gráfica es plataforma: formas
 // simples. El pez se dibuja con forma de pez (cuerpo elíptico + cola) para que escale bien.
 import type { Tank } from '../world/Tank';
-import type { Fish } from '../agents/Fish';
+import { Fish } from '../agents/Fish';
+import { Plant } from '../world/Plant';
+import type { Vec } from '../types';
+import { fitTransform, screenToWorld } from './transform';
 
 export class Renderer {
   canvas: HTMLCanvasElement;
@@ -13,7 +16,7 @@ export class Renderer {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  draw(tank: Tank): void {
+  draw(tank: Tank, selected: Fish | Plant | null = null): void {
     const ctx = this.ctx;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
@@ -21,9 +24,7 @@ export class Renderer {
     // Escala el mundo (tamaño fijo del escenario) para ajustarlo al canvas conservando la
     // proporción y centrándolo (letterbox). Dentro del save/restore se dibuja en COORDENADAS
     // DE MUNDO. Detalle: README › Coordenadas y escala.
-    const scale = Math.min(cw / tank.width, ch / tank.height);
-    const offsetX = (cw - tank.width * scale) / 2;
-    const offsetY = (ch - tank.height * scale) / 2;
+    const { scale, offsetX, offsetY } = fitTransform(cw, ch, tank.width, tank.height);
 
     // fondo detrás del mundo (cubre las franjas del letterbox)
     ctx.fillStyle = '#061219';
@@ -64,7 +65,25 @@ export class Renderer {
     // peces
     for (const fish of tank.fish) this.#drawFish(fish);
 
+    // realce de la entidad seleccionada por el inspector (anillo de acento, en coords de mundo)
+    if (selected) {
+      ctx.strokeStyle = '#4a90c4'; // --accent-2
+      ctx.lineWidth = 2 / scale;   // grosor constante en píxeles pese a la escala del mundo
+      ctx.beginPath();
+      if (selected instanceof Fish) {
+        ctx.arc(selected.x, selected.y, selected.size * 2.2, 0, Math.PI * 2);
+      } else if (selected instanceof Plant) {
+        ctx.arc(selected.base.x, selected.base.y, selected.contactRadius * 2.5, 0, Math.PI * 2);
+      }
+      ctx.stroke();
+    }
+
     ctx.restore();
+  }
+
+  /** Convierte un punto en píxeles del canvas a coordenadas de mundo (para la selección). */
+  canvasToWorld(px: number, py: number, tank: Tank): Vec {
+    return screenToWorld(px, py, fitTransform(this.canvas.width, this.canvas.height, tank.width, tank.height));
   }
 
   #drawFish(fish: Fish): void {

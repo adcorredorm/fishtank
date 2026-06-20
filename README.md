@@ -36,6 +36,9 @@ npm run typecheck   # chequea los tipos sin compilar (tsc --noEmit)
 - **Semilla:** misma semilla + mismo escenario = misma corrida exacta.
 - **Velocidad:** ritmo de simulación (ticks por segundo).
 - **Cono de visión:** muestra lo que cada pez puede percibir (útil para depurar `act()`).
+- **Inspector:** haz clic en un pez o una planta para seleccionarlo; el panel lateral muestra
+  sus valores en vivo (genoma, energía, edad; nivel y crecimiento si es planta). Para un pez,
+  lista además lo que percibe en ese tick: cada pez o planta de esa lista es seleccionable.
 
 > Sin reproducción todavía: la pecera corre hasta extinguirse. La reproducción/evolución
 > llegan en una iteración posterior.

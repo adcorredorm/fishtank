@@ -75,3 +75,13 @@ test('[ANDAMIAJE] crece más alto al subir de nivel (la punta sube = menor y)', 
   const p3 = new Plant({ x: 0, y: 200 }, cfg(), 3);
   expect(p3.contactPoint(arriba).y).toBeLessThan(p1.contactPoint(arriba).y);
 });
+
+test('[ANDAMIAJE] expone crecimiento de solo lectura para el inspector', () => {
+  const p = new Plant({ x: 0, y: 0 }, cfg({ growthInterval: 2, maxGrowth: 3 }), 0);
+  expect(p.maxGrowth).toBe(3);
+  expect(p.growthInterval).toBe(2);
+  expect(p.growthTicks).toBe(0);
+  p.grow();
+  expect(p.growthTicks).toBe(1);   // un tick acumulado, aún sin subir de nivel
+  expect(p.level).toBe(0);
+});

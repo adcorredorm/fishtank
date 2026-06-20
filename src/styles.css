@@ -205,3 +205,28 @@ button:active {
   font-weight: bold;
   margin-right: 8px;
 }
+
+/* --- Inspector ------------------------------------------------------------ */
+#inspector { margin-top: 18px; }
+.muted { color: var(--text-muted); }
+
+.insp-section {
+  color: var(--accent-2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 10px 0 4px;
+}
+
+.insp-row { display: flex; justify-content: space-between; gap: 8px; line-height: 1.6; }
+.insp-row .k { color: var(--text-muted); }
+.insp-row .v { color: var(--text); text-align: right; word-break: break-all; }
+
+.swatch {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+}

@@ -36,6 +36,10 @@ export class Plant implements Consumable {
   get energy(): number { return this.#cfg.energyPerLevel * this.level; }
   get color(): string { return this.#cfg.color; }
 
+  get maxGrowth(): number { return this.#maxLevel; }
+  get growthInterval(): number { return this.#cfg.growthInterval; }
+  get growthTicks(): number { return this.#ticksSinceGrowth; }
+
   get segments(): Segment[] {
     return this.#cfg.turtle.interpret(this.#chain[this.level]).map(s => ({
       x0: this.base.x + s.x0, y0: this.base.y + s.y0,

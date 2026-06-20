@@ -200,3 +200,13 @@ test('[ANDAMIAJE] sense ve una planta en nivel >= 1 por su vértice más cercano
   expect(seen.plants.length).toBe(1);
   expect(seen.plants[0].ref).toBe(planta);
 });
+
+test('sense reporta el rumbo del otro pez relativo al observador', () => {
+  // observador en (100,100) mirando +x (heading 0); otro pez justo al frente, mirando +y (π/2)
+  const me = new Fish(100, 100, 0, 100, makeGenome({ vision: { range: 200, angle: 2 * Math.PI } }));
+  const other = new Fish(130, 100, Math.PI / 2, 100, makeGenome());
+  const seen = me.sense(makeWorld({ fish: [me, other] })).seen;
+  expect(seen.fish.length).toBe(1);
+  expect(seen.fish[0].ref).toBe(other);
+  expect(Math.abs(seen.fish[0].heading - Math.PI / 2)).toBeLessThan(1e-9); // rumbo relativo
+});
