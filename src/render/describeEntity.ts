@@ -37,10 +37,13 @@ function describeFish(fish: Fish, world: World): InspectorModel {
     { label: 'size', value: `${g.size}` },
     { label: 'color', value: g.color, isColor: true },
     { label: 'diet', value: g.diet.map(C => C.name).join(', ') || '—' },
-    { label: 'visión', value: `range=${g.vision.range} angle=${g.vision.angle.toFixed(2)}` },
+    { label: 'visión', value: `range=${g.visionRange} angle=${g.visionAngle.toFixed(2)}` },
     { label: 'baseCost', value: `${g.baseCost}` },
     { label: 'moveCost', value: `${g.moveCost}` },
     { label: 'eatGain', value: `${g.eatGain}` },
+    { label: 'reproductionCost', value: `${g.reproductionCost}` },
+    { label: 'reproductionEfficiency', value: `${g.reproductionEfficiency}` },
+    { label: 'dispuesto', value: fish.wantsToReproduce ? 'sí' : 'no' },
   ];
 
   const seen = fish.sense(world).seen;

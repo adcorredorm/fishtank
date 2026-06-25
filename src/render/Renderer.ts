@@ -94,11 +94,12 @@ export class Renderer {
     ctx.rotate(fish.heading);
 
     if (this.showVision) {
-      const v = fish.genome.vision;
+      const range = fish.genome.visionRange;
+      const angle = fish.genome.visionAngle;
       ctx.fillStyle = 'rgba(74,144,196,0.12)';
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.arc(0, 0, v.range, -v.angle / 2, v.angle / 2);
+      ctx.arc(0, 0, range, -angle / 2, angle / 2);
       ctx.closePath();
       ctx.fill();
     }

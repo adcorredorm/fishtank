@@ -1,16 +1,16 @@
-// Pez: agente de la pecera. La clase BASE es andamiaje; las subclases (Prey/Predator) solo
-// sobre-escriben act(). El estado físico está encapsulado en campos privados '#': el motor
-// (esta clase base + el Tank) es el único que lo modifica.
+// Pez: agente ABSTRACTO de la pecera. La clase BASE es andamiaje (percepción, física, ciclo);
+// las subclases (Prey/Predator) implementan act() y breed(). El estado físico está encapsulado
+// en campos privados '#': el motor (esta clase base + el Tank) es el único que lo modifica.
 import type { Genome, Inputs, World, Vec, Consumable, Perceived } from '../types';
 import { dist, relativeBearing, fromAngle, vecAdd, vecScale, normalizeAngle } from '../utilities/vec';
 
-export class Fish implements Consumable {
+export abstract class Fish implements Consumable {
   #pos: Vec;
   #heading: number;
   #energy: number;
   #age = 0;
   #eaten = false;
-  #intent!: { turn: number; thrust: number; eat: object | null };
+  #intent!: { turn: number; thrust: number; eat: object | null; reproduce: boolean };
 
   genome: Genome;
 
@@ -37,9 +37,8 @@ export class Fish implements Consumable {
   set age(_v: number) {}
   get size(): number { return this.genome.size; }
   get isDead(): boolean { return this.#energy <= 0 || this.#age > this.genome.maxAge; }
-
-  /** true una vez que un depredador lo comió; el Tank lo retira en su `step()`. */
   get eaten(): boolean { return this.#eaten; }
+  get wantsToReproduce(): boolean { return this.#intent.reproduce; }
 
   // ── Consumable: un pez también es comida potencial (lo caza un depredador) ──
   contactPoint(_from: Vec): Vec { return this.pos; }
@@ -50,19 +49,31 @@ export class Fish implements Consumable {
     this.#eaten = true;
     return this.#energy;
   }
+  canEat(target: object): boolean { return this.genome.diet.some(C => target instanceof C); }
 
   // ── Actuadores: encolan intención; NO tocan el estado físico ──
   turn(delta: number): void { this.#intent.turn += delta; }
   thrust(amount: number): void { this.#intent.thrust = Math.max(0, Math.min(1, amount)); }
   eat(target: object): void { this.#intent.eat = target; }
+  reproduce(): void { this.#intent.reproduce = true; }
+  spendOnReproduction(): void {
+    this.#energy -= this.genome.reproductionCost;
+    this.#intent.reproduce = false;
+  }
+  #resetIntent(): void { this.#intent = { turn: 0, thrust: 0, eat: null, reproduce: false }; }
 
-  // ── Inspección ──
-  canEat(target: object): boolean { return this.genome.diet.some(C => target instanceof C); }
 
-  act(_inputs: Inputs): void { /* las subclases deciden */ }
+  /** Decide la acción del pez en este tick vía los actuadores. Lo implementa cada especie. */
+   abstract act(inputs: Inputs): void;
+  /**
+   * Produce el genoma de la cría a partir de este pez y `mate`. Cada especie decide CÓMO
+   * (cruce, mutación, lo que sea): es responsabilidad de la subclase implementarlo.
+   */
+  abstract breed(mate: Fish): Genome;
 
   // ── Ciclo del pez (plantilla, NO sobre-escribir) ──
   tick(world: World): void {
+    this.#resetIntent();
     const inputs = this.sense(world);
     this.act(inputs);
     this.#apply(world);
@@ -72,8 +83,8 @@ export class Fish implements Consumable {
   // El cono está centrado en el rumbo; 'dir' es relativo (0 = al frente).
   sense(world: World): Inputs {
     const seen: Inputs['seen'] = { food: [], plants: [], fish: [], walls: [] };
-    const halfAngle = this.genome.vision.angle / 2;
-    const range = this.genome.vision.range;
+    const halfAngle = this.genome.visionAngle / 2;
+    const range = this.genome.visionRange;
 
     const consider = <T>(ref: T, point: Vec, bucket: Perceived<T>[]): void => {
       const d = dist(this.#pos, point);
@@ -87,7 +98,10 @@ export class Fish implements Consumable {
     // Las plantas en nivel 0 (brotes) no se perciben: no hay nada que comer todavía.
     for (const p of world.plants) if (p.level >= 1) consider(p, p.contactPoint(this.#pos), seen.plants);
     for (const other of world.fish) if (other !== this) consider(other, other.contactPoint(this.#pos), seen.fish);
-    for (const e of seen.fish) e.heading = normalizeAngle(e.ref.heading - this.#heading);
+    for (const e of seen.fish) {
+      e.heading = normalizeAngle(e.ref.heading - this.#heading);
+      e.reproducing = e.ref.wantsToReproduce;
+    }
     for (const w of world.walls) {
       const wp = w.visiblePoint(this.#pos, this.#heading, halfAngle, range, world);
       if (wp) seen.walls.push({ dir: relativeBearing(this.#pos, this.#heading, wp), dist: dist(this.#pos, wp), ref: w });
@@ -126,10 +140,7 @@ export class Fish implements Consumable {
       this.#energy += this.genome.eatGain * target.tryConsume();
     }
 
-    // 6) envejecer y limpiar la intención para el próximo tick
+    // 6) envejecer
     this.#age += 1;
-    this.#resetIntent();
   }
-
-  #resetIntent(): void { this.#intent = { turn: 0, thrust: 0, eat: null }; }
 }

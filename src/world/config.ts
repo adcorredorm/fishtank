@@ -32,16 +32,18 @@ export const scenarios: Scenario[] = [
         type: Prey, count: 40,
         genome: {
           maxSpeed: 2.2, size: 6, color: '#7fd1a0', maxEnergy: 100,
-          diet: [Plant, Food], vision: preyVision,
+          diet: [Plant, Food], visionRange: preyVision.range, visionAngle: preyVision.angle,
           maxAge: 1800, baseCost: 0.04, moveCost: 0.08, eatGain: 1.0,
+          reproductionCost: 40, reproductionEfficiency: 0.75,
         },
       },
       {
         type: Predator, count: 6,
         genome: {
           maxSpeed: 3, size: 10, color: '#d98b5f', maxEnergy: 160,
-          diet: [Prey], vision: predatorVision,
+          diet: [Prey], visionRange: predatorVision.range, visionAngle: predatorVision.angle,
           maxAge: 3000, baseCost: 0.08, moveCost: 0.30, eatGain: 0.5,
+          reproductionCost: 70, reproductionEfficiency: 0.75,
         },
       },
     ],

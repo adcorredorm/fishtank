@@ -5,6 +5,7 @@ import { Plant } from '../src/world/Plant';
 import { Turtle } from '../src/world/Turtle';
 import type { Genome, PlantConfig } from '../src/types';
 import type { Grammar } from '../src/world/Grammar';
+import { cloneGenome } from '../src/agents/genome';
 
 // Gramática stub (deriveAll falso, no la solución del ejercicio) para probar sin la derivación.
 const stubGrammar = {
@@ -16,8 +17,14 @@ const stubGrammar = {
 function genome(): Genome {
   return {
     maxSpeed: 2, size: 5, color: '#fff', maxEnergy: 100, diet: [],
-    vision: { range: 100, angle: Math.PI }, maxAge: 1000, baseCost: 0.1, moveCost: 0.2, eatGain: 1,
+    visionRange: 100, visionAngle: Math.PI, maxAge: 1000, baseCost: 0.1, moveCost: 0.2, eatGain: 1,
+    reproductionCost: 40, reproductionEfficiency: 0.75,
   };
+}
+// Fish es abstracta; subclase mínima concreta para instanciar peces en los tests.
+class TestFish extends Fish {
+  act(): void {}
+  breed(_mate: Fish): Genome { return cloneGenome(this.genome); }
 }
 function plantCfg(): PlantConfig {
   return {
@@ -28,18 +35,18 @@ function plantCfg(): PlantConfig {
 }
 
 test('clic sobre un pez lo selecciona', () => {
-  const f = new Fish(100, 100, 0, 100, genome());
+  const f = new TestFish(100, 100, 0, 100, genome());
   expect(pickEntity({ x: 102, y: 101 }, { fish: [f], plants: [] }, 2)).toBe(f);
 });
 
 test('pez y planta solapados: gana el pez (prioridad por tipo)', () => {
-  const f = new Fish(100, 100, 0, 100, genome());
+  const f = new TestFish(100, 100, 0, 100, genome());
   const p = new Plant({ x: 100, y: 100 }, plantCfg(), 2);
   expect(pickEntity({ x: 100, y: 100 }, { fish: [f], plants: [p] }, 2)).toBe(f);
 });
 
 test('clic en vacío devuelve null', () => {
-  const f = new Fish(0, 0, 0, 100, genome());
+  const f = new TestFish(0, 0, 0, 100, genome());
   expect(pickEntity({ x: 500, y: 500 }, { fish: [f], plants: [] }, 2)).toBeNull();
 });
 

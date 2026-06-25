@@ -6,6 +6,7 @@ import { Wall } from '../src/world/Wall';
 import { Turtle } from '../src/world/Turtle';
 import type { Genome, World, PlantConfig } from '../src/types';
 import type { Grammar } from '../src/world/Grammar';
+import { cloneGenome } from '../src/agents/genome';
 
 const stubGrammar = {
   axiom: 'F', rules: {},
@@ -16,8 +17,14 @@ const stubGrammar = {
 function genome(over: Partial<Genome> = {}): Genome {
   return Object.assign({
     maxSpeed: 2, size: 5, color: '#fff', maxEnergy: 100, diet: [],
-    vision: { range: 100, angle: Math.PI }, maxAge: 1000, baseCost: 0.1, moveCost: 0.2, eatGain: 1,
+    visionRange: 100, visionAngle: Math.PI, maxAge: 1000, baseCost: 0.1, moveCost: 0.2, eatGain: 1,
+    reproductionCost: 40, reproductionEfficiency: 0.75,
   } as Genome, over);
+}
+// Fish es abstracta; subclase mínima concreta para instanciar peces en los tests.
+class TestFish extends Fish {
+  act(): void {}
+  breed(_mate: Fish): Genome { return cloneGenome(this.genome); }
 }
 function plantCfg(): PlantConfig {
   return {
@@ -34,8 +41,8 @@ function makeWorld(over: Partial<World> = {}): World {
 }
 
 test('describe de un pez: estado, genoma y percepción navegable', () => {
-  const me = new Fish(100, 100, 0, 100, genome({ vision: { range: 200, angle: 2 * Math.PI } }));
-  const other = new Fish(120, 100, Math.PI / 2, 100, genome());
+  const me = new TestFish(100, 100, 0, 100, genome({ visionRange: 200, visionAngle: 2 * Math.PI }));
+  const other = new TestFish(120, 100, Math.PI / 2, 100, genome());
   const plant = new Plant({ x: 100, y: 60 }, plantCfg(), 2);
   const m = describeEntity(me, makeWorld({ fish: [me, other], plants: [plant] }));
 

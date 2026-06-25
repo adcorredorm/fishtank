@@ -7,13 +7,13 @@ import type { Genome, World } from '../src/types';
 
 function preyGenome(): Genome {
   return { maxSpeed: 2, size: 5, color: '#7fd1a0', maxEnergy: 100,
-    diet: [Food], vision: { range: 100, angle: Math.PI }, maxAge: 1000,
-    baseCost: 0.1, moveCost: 0.2, eatGain: 1 };
+    diet: [Food], visionRange: 100, visionAngle: Math.PI, maxAge: 1000,
+    baseCost: 0.1, moveCost: 0.2, eatGain: 1, reproductionCost: 40, reproductionEfficiency: 0.75 };
 }
 function predGenome(): Genome {
   return { maxSpeed: 3, size: 8, color: '#d98b5f', maxEnergy: 150,
-    diet: [Prey], vision: { range: 120, angle: Math.PI }, maxAge: 1500,
-    baseCost: 0.1, moveCost: 0.2, eatGain: 0.5 };
+    diet: [Prey], visionRange: 120, visionAngle: Math.PI, maxAge: 1500,
+    baseCost: 0.1, moveCost: 0.2, eatGain: 0.5, reproductionCost: 70, reproductionEfficiency: 0.75 };
 }
 function world(over: Partial<World> = {}): World {
   return Object.assign({

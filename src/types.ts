@@ -22,9 +22,15 @@ export interface Genome {
   maxSpeed: number; size: number; color: string; maxEnergy: number;
   /** Clases que esta especie puede comer, p. ej. [Food] o [Prey]. `canEat` usa instanceof. */
   diet: EntityClass[];
-  vision: { range: number; angle: number };
+  /** Cono de visión: alcance (radio) y ángulo de apertura, en radianes. */
+  visionRange: number;
+  visionAngle: number;
   maxAge: number;
   baseCost: number; moveCost: number; eatGain: number;
+  /** Energía que el pez invierte al reproducirse (la paga de la suya). */
+  reproductionCost: number;
+  /** Fracción (0..1) de lo invertido que llega a la cría; el resto se pierde. */
+  reproductionEfficiency: number;
 }
 
 /** Una entidad vista por el pez dentro de su cono de visión. */
@@ -41,6 +47,8 @@ export interface Perceived<T> {
 export interface PerceivedFish extends Perceived<Fish> {
   /** Rumbo del otro pez relativo al mío, normalizado a (−π, π]. 0 = miramos igual. */
   heading: number;
+  /** ¿El otro pez está dispuesto a reproducirse en este tick? */
+  reproducing: boolean;
 }
 
 /** Lo que percibe un pez en un tick — es el argumento que recibe `act(inputs)`. */

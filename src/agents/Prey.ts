@@ -1,9 +1,11 @@
 import { Fish } from './Fish';
 import { nearest } from '../utilities/vec';
-import type { Inputs } from '../types';
+import { randomGenome } from './genome';
+import type { Inputs, Genome } from '../types';
 
 export class Prey extends Fish {
   act(inputs: Inputs): void {
+    if (this.energy > this.genome.reproductionCost) this.reproduce();
     // 1) huir de cualquier pez que pueda comerme
     const threat = nearest(inputs.seen.fish.filter(e => e.ref.canEat(this)));
     if (threat) {
@@ -21,5 +23,9 @@ export class Prey extends Fish {
     }
     // 3) sin nada cerca: avanzar lento
     this.thrust(0.3);
+  }
+
+  breed(_mate: Fish): Genome {
+    return randomGenome(this.genome);
   }
 }

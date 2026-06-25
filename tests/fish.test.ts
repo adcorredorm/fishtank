@@ -13,13 +13,15 @@ const stubGrammar = {
   deriveStep: (s: string) => s,
   deriveAll: (n: number) => Array.from({ length: n + 1 }, (_, i) => 'F'.repeat(i + 1)),
 } as unknown as Grammar;
-import type { Genome, World, PlantConfig } from '../src/types';
+import type { Genome, World, PlantConfig, Inputs } from '../src/types';
+import { cloneGenome } from '../src/agents/genome';
 
 function makeGenome(over: Partial<Genome> = {}): Genome {
   return Object.assign({
     maxSpeed: 2, size: 5, color: '#fff', maxEnergy: 100,
-    diet: [Food], vision: { range: 100, angle: Math.PI }, // cono de 180°
+    diet: [Food], visionRange: 100, visionAngle: Math.PI, // cono de 180°
     maxAge: 1000, baseCost: 0.1, moveCost: 0.2, eatGain: 1,
+    reproductionCost: 40, reproductionEfficiency: 0.75,
   } as Genome, over);
 }
 
@@ -32,8 +34,14 @@ function makeWorld(over: Partial<World> = {}): World {
   } as World, over);
 }
 
+// Fish es abstracta (act y breed sin implementar). Subclase mínima concreta para probar el motor.
+class TestFish extends Fish {
+  act(_inputs: Inputs): void {}
+  breed(_mate: Fish): Genome { return cloneGenome(this.genome); }
+}
+
 test('getters exponen estado, energía inicial = maxEnergy', () => {
-  const f = new Fish(10, 20, 0, 100, makeGenome());
+  const f = new TestFish(10, 20, 0, 100, makeGenome());
   expect(f.x).toBe(10);
   expect(f.y).toBe(20);
   expect(f.energy).toBe(100);
@@ -43,7 +51,7 @@ test('getters exponen estado, energía inicial = maxEnergy', () => {
 });
 
 test('act() de una subclase NO puede mutar el estado físico (encapsulado)', () => {
-  class Cheater extends Fish {
+  class Cheater extends TestFish {
     act(): void { this.pos = { x: 999, y: 999 }; this.energy = 999999; }
   }
   const f = new Cheater(10, 20, 0, 100, makeGenome());
@@ -54,7 +62,7 @@ test('act() de una subclase NO puede mutar el estado físico (encapsulado)', () 
 });
 
 test('escribir x/y/heading/age desde una subclase es inerte (no lanza, no cambia)', () => {
-  class Cheater extends Fish {
+  class Cheater extends TestFish {
     act(): void { this.x = 999; this.y = 999; this.heading = 1.23; this.age = 9999; }
   }
   const f = new Cheater(10, 20, 0, 100, makeGenome());
@@ -66,19 +74,19 @@ test('escribir x/y/heading/age desde una subclase es inerte (no lanza, no cambia
 });
 
 test('canEat respeta la dieta por clases', () => {
-  const prey = new Fish(0, 0, 0, 100, makeGenome({ diet: [Food] }));
+  const prey = new TestFish(0, 0, 0, 100, makeGenome({ diet: [Food] }));
   expect(prey.canEat(new Food(0, 0, 1))).toBe(true);
-  expect(prey.canEat(new Fish(0, 0, 0, 100, makeGenome()))).toBe(false);
+  expect(prey.canEat(new TestFish(0, 0, 0, 100, makeGenome()))).toBe(false);
 });
 
 test('el genoma es mutable (creatividad del estudiante)', () => {
-  const f = new Fish(0, 0, 0, 100, makeGenome());
+  const f = new TestFish(0, 0, 0, 100, makeGenome());
   f.genome.color = '#abcdef';
   expect(f.genome.color).toBe('#abcdef');
 });
 
 test('sense ve comida dentro del rango y la ignora fuera', () => {
-  const f = new Fish(100, 100, 0, 100, makeGenome({ vision: { range: 50, angle: Math.PI } }));
+  const f = new TestFish(100, 100, 0, 100, makeGenome({ visionRange: 50, visionAngle: Math.PI }));
   const cerca = new Food(130, 100, 1); // a 30 px, al frente
   const lejos = new Food(190, 100, 1); // a 90 px, fuera de rango
   const world = makeWorld({ food: [cerca, lejos] });
@@ -89,28 +97,28 @@ test('sense ve comida dentro del rango y la ignora fuera', () => {
 });
 
 test('sense respeta el ángulo del cono (no ve lo que queda detrás)', () => {
-  const f = new Fish(100, 100, 0, 100, makeGenome({ vision: { range: 100, angle: Math.PI / 3 } }));
+  const f = new TestFish(100, 100, 0, 100, makeGenome({ visionRange: 100, visionAngle: Math.PI / 3 }));
   const detras = new Food(40, 100, 1);
   const seen = f.sense(makeWorld({ food: [detras] })).seen;
   expect(seen.food.length).toBe(0);
 });
 
 test('sense no se ve a sí mismo pero sí a otros peces', () => {
-  const f = new Fish(100, 100, 0, 100, makeGenome({ vision: { range: 100, angle: Math.PI } }));
-  const otro = new Fish(120, 100, 0, 100, makeGenome());
+  const f = new TestFish(100, 100, 0, 100, makeGenome({ visionRange: 100, visionAngle: Math.PI }));
+  const otro = new TestFish(120, 100, 0, 100, makeGenome());
   const seen = f.sense(makeWorld({ fish: [f, otro] })).seen;
   expect(seen.fish.length).toBe(1);
   expect(seen.fish[0].ref).toBe(otro);
 });
 
 test('sense incluye las paredes como entidades', () => {
-  const f = new Fish(20, 100, 0, 100, makeGenome({ vision: { range: 100, angle: 2 * Math.PI } }));
+  const f = new TestFish(20, 100, 0, 100, makeGenome({ visionRange: 100, visionAngle: 2 * Math.PI }));
   const seen = f.sense(makeWorld({ width: 200, height: 200 })).seen;
   expect(seen.walls.some((w: any) => w.ref.side === 'left')).toBeTruthy();
 });
 
 test('thrust mueve el pez en su rumbo y cobra metabolismo', () => {
-  class Pusher extends Fish { act(): void { this.thrust(1); } }
+  class Pusher extends TestFish { act(): void { this.thrust(1); } }
   const g = new Pusher(100, 100, 0, 100, makeGenome({ maxSpeed: 10, baseCost: 1, moveCost: 2 }));
   g.tick(makeWorld());
   expect(Math.abs(g.x - 110)).toBeLessThan(1e-9); // se movió 10 px hacia +x
@@ -119,14 +127,14 @@ test('thrust mueve el pez en su rumbo y cobra metabolismo', () => {
 });
 
 test('turn cambia el rumbo (relativo)', () => {
-  class Turner extends Fish { act(): void { this.turn(Math.PI / 2); this.thrust(0); } }
+  class Turner extends TestFish { act(): void { this.turn(Math.PI / 2); this.thrust(0); } }
   const g = new Turner(100, 100, 0, 100, makeGenome());
   g.tick(makeWorld());
   expect(Math.abs(g.heading - Math.PI / 2)).toBeLessThan(1e-9);
 });
 
 test('rebota y se mantiene dentro de las paredes', () => {
-  class Pusher extends Fish { act(): void { this.thrust(1); } }
+  class Pusher extends TestFish { act(): void { this.thrust(1); } }
   const g = new Pusher(195, 100, 0, 100, makeGenome({ maxSpeed: 20 })); // hacia +x, pegado al borde derecho
   g.tick(makeWorld({ width: 200, height: 200 }));
   expect(g.x).toBeLessThanOrEqual(200);
@@ -137,15 +145,15 @@ test('comer en contacto suma energía y marca la comida como comida', () => {
   const world = makeWorld();
   const comida = new Food(102, 100, 8);
   world.food = [comida];
-  class Eater extends Fish { act(inputs: any): void { this.eat(inputs.seen.food[0].ref); } }
-  const g = new Eater(100, 100, 0, 100, makeGenome({ size: 10, eatGain: 1, baseCost: 0, moveCost: 0, vision: { range: 50, angle: Math.PI } }));
+  class Eater extends TestFish { act(inputs: any): void { this.eat(inputs.seen.food[0].ref); } }
+  const g = new Eater(100, 100, 0, 100, makeGenome({ size: 10, eatGain: 1, baseCost: 0, moveCost: 0, visionRange: 50, visionAngle: Math.PI }));
   g.tick(world);
   expect(comida.eaten).toBe(true);
   expect(g.energy).toBe(100 + 1 * 8); // eatGain * food.energy
 });
 
 test('muere por energía agotada', () => {
-  class Pusher extends Fish { act(): void { this.thrust(1); } }
+  class Pusher extends TestFish { act(): void { this.thrust(1); } }
   const g = new Pusher(100, 100, 0, 1, makeGenome({ baseCost: 1, moveCost: 1 }));
   g.tick(makeWorld());
   expect(g.isDead).toBeTruthy();
@@ -156,7 +164,7 @@ test('una pared se percibe en su punto visible dentro del cono, no en la perpend
   // La perpendicular a la pared izquierda cae fuera del cono, pero la pared SÍ es visible
   // por el borde del cono → debe aparecer con |dir| ≤ medio-ángulo.
   const half = Math.PI / 6;
-  const f = new Fish(50, 100, 3 * Math.PI / 4, 100, makeGenome({ vision: { range: 100, angle: 2 * half } }));
+  const f = new TestFish(50, 100, 3 * Math.PI / 4, 100, makeGenome({ visionRange: 100, visionAngle: 2 * half }));
   const seen = f.sense(makeWorld({ width: 400, height: 400 })).seen;
   const left = seen.walls.find((w: any) => w.ref.side === 'left');
   expect(left).toBeTruthy(); // la pared izquierda debería ser visible por el borde del cono
@@ -168,7 +176,7 @@ test('dos peces no pueden comer el mismo objetivo dos veces (reclamación única
   const world = makeWorld();
   const comida = new Food(100, 100, 8);
   world.food = [comida];
-  class Eater extends Fish { act(): void { this.eat(comida); } }
+  class Eater extends TestFish { act(): void { this.eat(comida); } }
   const g = makeGenome({ size: 20, eatGain: 1, baseCost: 0, moveCost: 0 });
   const a = new Eater(100, 100, 0, 100, g);
   const b = new Eater(100, 100, 0, 100, g);
@@ -187,14 +195,14 @@ function plantCfg(): PlantConfig {
 }
 
 test('[ANDAMIAJE] sense ignora las plantas en nivel 0', () => {
-  const f = new Fish(100, 100, -Math.PI / 2, 100, makeGenome({ vision: { range: 200, angle: 2 * Math.PI } }));
+  const f = new TestFish(100, 100, -Math.PI / 2, 100, makeGenome({ visionRange: 200, visionAngle: 2 * Math.PI }));
   const brote = new Plant({ x: 100, y: 60 }, plantCfg(), 0); // arriba del pez, pero nivel 0
   const seen = f.sense(makeWorld({ plants: [brote] })).seen;
   expect(seen.plants.length).toBe(0);
 });
 
 test('[ANDAMIAJE] sense ve una planta en nivel >= 1 por su vértice más cercano', () => {
-  const f = new Fish(100, 100, -Math.PI / 2, 100, makeGenome({ vision: { range: 200, angle: 2 * Math.PI } }));
+  const f = new TestFish(100, 100, -Math.PI / 2, 100, makeGenome({ visionRange: 200, visionAngle: 2 * Math.PI }));
   const planta = new Plant({ x: 100, y: 60 }, plantCfg(), 2); // crecida, arriba del pez
   const seen = f.sense(makeWorld({ plants: [planta] })).seen;
   expect(seen.plants.length).toBe(1);
@@ -203,10 +211,49 @@ test('[ANDAMIAJE] sense ve una planta en nivel >= 1 por su vértice más cercano
 
 test('sense reporta el rumbo del otro pez relativo al observador', () => {
   // observador en (100,100) mirando +x (heading 0); otro pez justo al frente, mirando +y (π/2)
-  const me = new Fish(100, 100, 0, 100, makeGenome({ vision: { range: 200, angle: 2 * Math.PI } }));
-  const other = new Fish(130, 100, Math.PI / 2, 100, makeGenome());
+  const me = new TestFish(100, 100, 0, 100, makeGenome({ visionRange: 200, visionAngle: 2 * Math.PI }));
+  const other = new TestFish(130, 100, Math.PI / 2, 100, makeGenome());
   const seen = me.sense(makeWorld({ fish: [me, other] })).seen;
   expect(seen.fish.length).toBe(1);
   expect(seen.fish[0].ref).toBe(other);
   expect(Math.abs(seen.fish[0].heading - Math.PI / 2)).toBeLessThan(1e-9); // rumbo relativo
+});
+
+test('reproduce() marca la voluntad; arranca en false y se limpia al inicio del siguiente tick', () => {
+  class Breeder extends TestFish { act(): void { this.reproduce(); } }
+  const f = new Breeder(100, 100, 0, 100, makeGenome());
+  expect(f.wantsToReproduce).toBe(false);     // antes de actuar
+  f.tick(makeWorld());
+  expect(f.wantsToReproduce).toBe(true);       // act() la marcó este tick
+});
+
+test('reproduce() se vuelve a evaluar cada tick (no act() ⇒ false)', () => {
+  let on = true;
+  class Maybe extends TestFish { act(): void { if (on) this.reproduce(); } }
+  const f = new Maybe(100, 100, 0, 100, makeGenome({ baseCost: 0, moveCost: 0 }));
+  f.tick(makeWorld());
+  expect(f.wantsToReproduce).toBe(true);
+  on = false;
+  f.tick(makeWorld());                         // el reset al inicio del tick la baja y act() no la sube
+  expect(f.wantsToReproduce).toBe(false);
+});
+
+test('spendOnReproduction cobra el costo y baja el flag', () => {
+  class Breeder extends TestFish { act(): void { this.reproduce(); } }
+  const f = new Breeder(100, 100, 0, 100, makeGenome({ reproductionCost: 30, baseCost: 0, moveCost: 0 }));
+  f.tick(makeWorld());
+  expect(f.wantsToReproduce).toBe(true);
+  f.spendOnReproduction();
+  expect(f.energy).toBe(70);                   // 100 - 30
+  expect(f.wantsToReproduce).toBe(false);
+});
+
+test('sense expone si el otro pez está dispuesto a reproducirse (reproducing)', () => {
+  class Breeder extends TestFish { act(): void { this.reproduce(); } }
+  const me = new TestFish(100, 100, 0, 100, makeGenome({ visionRange: 200, visionAngle: 2 * Math.PI }));
+  const willing = new Breeder(130, 100, 0, 100, makeGenome());
+  willing.tick(makeWorld());                   // pone su voluntad en true
+  const seen = me.sense(makeWorld({ fish: [me, willing] })).seen;
+  expect(seen.fish.length).toBe(1);
+  expect(seen.fish[0].reproducing).toBe(true);
 });
